@@ -1,0 +1,158 @@
+C51 COMPILER V9.59.0.0   BSP_UART                                                          10/07/2018 15:27:27 PAGE 1   
+
+
+C51 COMPILER V9.59.0.0, COMPILATION OF MODULE BSP_UART
+OBJECT MODULE PLACED IN .\Objects\bsp_uart.obj
+COMPILER INVOKED BY: D:\keil4\C51\BIN\C51.EXE ..\bsp\bsp_uart.c OPTIMIZE(8,SPEED) BROWSE INCDIR(..\user;..\lib;..\bsp;..
+                    -\TimeOut) DEBUG OBJECTEXTEND PRINT(.\Listings\bsp_uart.lst) TABS(2) OBJECT(.\Objects\bsp_uart.obj)
+
+line level    source
+
+   1          #include "bsp_uart.h"
+   2          #include "string.h"
+   3          
+   4          extern unsigned char Uart1SendFlag,Uart1ReceiveFlag;
+   5          unsigned char Res_Num,Sum;
+   6          unsigned char Rev_Data_Arr[10];
+   7          
+   8          void Uart_Init(void)
+   9          {
+  10   1        P1CON |= 0X08;
+  11   1        P1PH  &= ~0X08;
+  12   1        
+  13   1        OTCON = 0xC0;    //串行接口SSI选择Uart1通信
+  14   1        SSCON0 = 0x50;   //设置通信方式为模式一，允许接收
+  15   1        SSCON1 = Freq*1000000/baud;   //波特率低位控制
+  16   1        SSCON2 = (Freq*1000000/baud)>>8;   //波特率高位控制
+  17   1        IE1 = 0x01;      //开启SSI中断
+  18   1        EA = 1; 
+  19   1      }
+  20          
+  21          static void Send_Data(unsigned char DATA)
+  22          {
+  23   1        SSDAT = DATA;
+  24   1        while(!Uart1SendFlag);
+  25   1        Uart1SendFlag = 0;
+  26   1      }
+  27          
+  28          static unsigned char Send_Byte(PROTOCOL_TX *p)
+  29          {
+  30   1        unsigned char i;
+  31   1        for(i = 0;i < BUF_SIZE;i++)
+  32   1        {
+  33   2          Send_Data(p->Buf[i]);
+  34   2        }
+  35   1        return 1;
+  36   1      }
+  37          
+  38          unsigned char Protocol_Send(unsigned char addr/*,unsigned char id*/,unsigned int ssdat)
+  39          {
+  40   1        PROTOCOL_TX buf;
+  41   1        memset(&buf,0,sizeof(buf));
+  42   1        buf.Data_Format_tx.ADDR     = addr;
+  43   1        //buf.Data_Format_tx.ID       = id;
+  44   1        buf.Data_Format_tx.DATA1    = Hight_Data(ssdat);
+  45   1        buf.Data_Format_tx.DATA2    = Low_Data(ssdat);
+  46   1        buf.Data_Format_tx.CHECKSUM = (unsigned char)((buf.Data_Format_tx.ADDR)/*+(buf.Data_Format_tx.ID)*/+(buf.
+             -Data_Format_tx.DATA1)+(buf.Data_Format_tx.DATA2));
+  47   1        buf.Data_Format_tx.STOP1    = 0X0D;
+  48   1        buf.Data_Format_tx.STOP2    = 0X0A;
+  49   1        return Send_Byte(&buf);
+  50   1      }
+  51          
+  52          
+  53          
+C51 COMPILER V9.59.0.0   BSP_UART                                                          10/07/2018 15:27:27 PAGE 2   
+
+  54          unsigned char If_Rev_Over(void)
+  55          {
+  56   1        if(Res_Num & 0x80)
+  57   1        {
+  58   2          Res_Num &= 0x00;
+  59   2          return 1;
+  60   2        }
+  61   1        else
+  62   1        {
+  63   2          return 0;
+  64   2        }
+  65   1      }
+  66          
+  67          static unsigned char Rev_Data(void)
+  68          {
+  69   1        unsigned char RX_DATA;
+  70   1        RX_DATA = SSDAT;
+  71   1        return RX_DATA;
+  72   1      }
+  73          
+  74          void Rev_Data_Str(void)
+  75          {
+  76   1        static unsigned char Rx_Data;
+  77   1        Rx_Data = Rev_Data();
+  78   1        if((Res_Num & 0x80) == 0)
+  79   1        {
+  80   2          if(Res_Num & 0x40)
+  81   2          {
+  82   3            if(Rx_Data == 0xfb)
+  83   3            {
+  84   4              Res_Num |= 0x80;
+  85   4            }
+  86   3            else
+  87   3            {
+  88   4              Res_Num &= 0x00;
+  89   4            }
+  90   3          } 
+  91   2          else
+  92   2          {
+  93   3            if(Rx_Data == Sum)
+  94   3            {
+  95   4              Res_Num |= 0x40;
+  96   4            }
+  97   3            else
+  98   3            {
+  99   4              Rev_Data_Arr[Res_Num] = Rx_Data;
+ 100   4              Res_Num ++;
+ 101   4              Sum = (unsigned char)(Rev_Data_Arr[0]+Rev_Data_Arr[1]+Rev_Data_Arr[2]+Rev_Data_Arr[3]
+ 102   4                                    +Rev_Data_Arr[4]+Rev_Data_Arr[5]+Rev_Data_Arr[6]+Rev_Data_Arr[7]+Rev_Data_Arr[8])
+             -;
+ 103   4              if(Rev_Data_Arr[0] != 0xfa)
+ 104   4              {
+ 105   5                Res_Num &= 0x00;
+ 106   5              }
+ 107   4      //        if(Rev_Data_Arr[1] != 0xfa)
+ 108   4      //        {
+ 109   4      //          Res_Num &= 0x00;
+ 110   4      //        }
+ 111   4              if(Res_Num > 10)
+ 112   4              {
+ 113   5                Res_Num &= 0x00;
+ 114   5              }
+C51 COMPILER V9.59.0.0   BSP_UART                                                          10/07/2018 15:27:27 PAGE 3   
+
+ 115   4            }
+ 116   3          }     
+ 117   2        }
+ 118   1      }
+ 119          
+ 120          
+ 121          
+ 122          
+ 123          
+ 124          
+ 125          
+ 126          
+ 127          
+ 128          
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =    235    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =   ----    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =     13      12
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

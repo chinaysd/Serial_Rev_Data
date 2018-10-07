@@ -1,0 +1,10 @@
+".\Objects\STARTUP.obj",
+".\Objects\main.obj",
+".\Objects\system.obj",
+".\Objects\bsp_led.obj",
+".\Objects\bsp_key.obj",
+".\Objects\bsp_uart.obj",
+".\Objects\bsp_timer.obj",
+".\Objects\TimeOut.obj" 
+TO ".\Objects\led" 
+PRINT(".\Listings\led.m51") RAMSIZE(256) 
